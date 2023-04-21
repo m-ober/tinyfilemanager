@@ -4,7 +4,7 @@ $CONFIG = '{"lang":"en","error_reporting":false,"show_hidden":false,"hide_Cols":
 
 /**
  * H3K | Tiny File Manager V2.5.3
- * @author Prasath Mani | CCP Programmers
+ * @author CCP Programmers
  * @email ccpprogrammers@gmail.com
  * @github https://github.com/prasathmani/tinyfilemanager
  * @link https://tinyfilemanager.github.io
@@ -220,7 +220,7 @@ if (defined('FM_EMBED')) {
         mb_regex_encoding('UTF-8');
     }
 
-    session_cache_limiter('');
+    session_cache_limiter('nocache'); // Prevent logout issue after page was cached
     session_name(FM_SESSION_ID );
     function session_error_handling_function($code, $msg, $file, $line) {
         // Permission denied for default session, try to create a new one
@@ -912,7 +912,6 @@ if (!empty($_FILES) && !FM_READONLY) {
         echo json_encode($response); exit();
     }
 
-    $override_file_name = false;
     $chunkIndex = $_POST['dzchunkindex'];
     $chunkTotal = $_POST['dztotalchunkcount'];
     $fullPathInput = fm_clean_path($_REQUEST['fullpath']);
@@ -950,11 +949,6 @@ if (!empty($_FILES) && !FM_READONLY) {
         $fullPath = $path . '/' . basename($fullPathInput);
         $folder = substr($fullPath, 0, strrpos($fullPath, "/"));
 
-        if(file_exists ($fullPath) && !$override_file_name && !$chunks) {
-            $ext_1 = $ext ? '.'.$ext : '';
-            $fullPath = $path . '/' . basename($fullPathInput, $ext_1) .'_'. date('ymdHis'). $ext_1;
-        }
-
         if (!is_dir($folder)) {
             $old = umask(0);
             mkdir($folder, 0777, true);
@@ -967,7 +961,12 @@ if (!empty($_FILES) && !FM_READONLY) {
                 if ($out) {
                     $in = @fopen($tmp_name, "rb");
                     if ($in) {
-                        while ($buff = fread($in, 4096)) { fwrite($out, $buff); }
+                        if (PHP_VERSION_ID < 80009) {
+                            // workaround https://bugs.php.net/bug.php?id=81145
+                            while (!feof($in)) { fwrite($out, fread($in, 4096)); }
+                        } else {
+                            stream_copy_to_stream($in, $out);
+                        }
                         $response = array (
                             'status'    => 'success',
                             'info' => "file upload successful"
@@ -995,7 +994,13 @@ if (!empty($_FILES) && !FM_READONLY) {
                 }
 
                 if ($chunkIndex == $chunkTotal - 1) {
-                    rename("{$fullPath}.part", $fullPath);
+                    if (file_exists ($fullPath)) {
+                        $ext_1 = $ext ? '.'.$ext : '';
+                        $fullPathTarget = $path . '/' . basename($fullPathInput, $ext_1) .'_'. date('ymdHis'). $ext_1;
+                    } else {
+                        $fullPathTarget = $fullPath;
+                    }
+                    rename("{$fullPath}.part", $fullPathTarget);
                 }
 
             } else if (move_uploaded_file($tmp_name, $fullPath)) {
@@ -2049,6 +2054,12 @@ $tableTheme = (FM_THEME == "dark") ? "text-white bg-dark table-dark" : "bg-white
                 if (function_exists('posix_getpwuid') && function_exists('posix_getgrgid')) {
                     $owner = posix_getpwuid(fileowner($path . '/' . $f));
                     $group = posix_getgrgid(filegroup($path . '/' . $f));
+                    if ($owner === false) {
+                        $owner = array('name' => '?');
+                    }
+                    if ($group === false) {
+                        $group = array('name' => '?');
+                    }
                 } else {
                     $owner = array('name' => '?');
                     $group = array('name' => '?');
@@ -2102,6 +2113,12 @@ $tableTheme = (FM_THEME == "dark") ? "text-white bg-dark table-dark" : "bg-white
                 if (function_exists('posix_getpwuid') && function_exists('posix_getgrgid')) {
                     $owner = posix_getpwuid(fileowner($path . '/' . $f));
                     $group = posix_getgrgid(filegroup($path . '/' . $f));
+                    if ($owner === false) {
+                        $owner = array('name' => '?');
+                    }
+                    if ($group === false) {
+                        $group = array('name' => '?');
+                    }
                 } else {
                     $owner = array('name' => '?');
                     $group = array('name' => '?');
