@@ -952,7 +952,7 @@ if (!empty($_FILES) && !FM_READONLY) {
         $fullPath = $path . '/' . basename($fullPathInput);
         $folder = substr($fullPath, 0, strrpos($fullPath, "/"));
 
-        if(file_exists ($fullPath) && !$override_file_name && !$chunks) {
+        if(file_exists ($fullPath) && !$override_file_name) {
             $ext_1 = $ext ? '.'.$ext : '';
             $fullPath = $path . '/' . basename($fullPathInput, $ext_1) .'_'. date('ymdHis'). $ext_1;
         }
